@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tableau de bord - LinkMeet</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+        body { background: #f8f9fa; }
+        .navbar-brand { font-weight: 700; }
+        .dashboard-card {
+            background: white;
+            border: none;
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+            transition: all 0.3s ease;
+        }
+        .dashboard-card:hover {
+            box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+            transform: translateY(-2px);
+        }
+        .stat-icon {
+            width: 50px;
+            height: 50px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+        }
+        .meeting-item {
+            border-left: 4px solid #667eea;
+            padding: 15px;
+            background: white;
+            border-radius: 10px;
+            margin-bottom: 10px;
+            transition: all 0.3s ease;
+            animation: fadeIn 0.5s ease;
+        }
+        .meeting-item.new {
+            border-left-color: #28a745;
+            background: #f0fff4;
+        }
+        .meeting-item:hover { background: #f8f9fa; }
+        .meeting-item .meeting-code {
+            font-family: monospace;
+            font-weight: bold;
+            color: #667eea;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateX(-20px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+        @keyframes slideIn {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+        @keyframes slideOut {
+            from { transform: translateX(0); opacity: 1; }
+            to { transform: translateX(100%); opacity: 0; }
+        }
+        .notification-toast {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 9999;
+            min-width: 300px;
+            max-width: 400px;
+            animation: slideIn 0.5s ease;
+            border-radius: 12px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+        }
+        .notification-toast .btn-close {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+        }
+        .live-indicator {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #28a745;
+            animation: pulse 1.5s infinite;
+            margin-right: 8px;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+    </style>
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+        <div class="container">
+            <a class="navbar-brand" href="#">
+                <i class="fas fa-video me-2"></i>LinkMeet
+            </a>
+            <div class="d-flex align-items-center">
+                <span class="text-white me-3" id="userName">Utilisateur</span>
+                <span class="text-white-50 me-2" style="font-size: 12px;">
+                    <span class="live-indicator"></span>Live
+                </span>
+                <button class="btn btn-outline-light btn-sm" id="logoutBtn">
+                    <i class="fas fa-sign-out-alt me-1"></i>Déconnexion
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container py-4">
+        <!-- Statistiques -->
+        <div class="row g-4 mb-4">
+            <div class="col-md-4">
+                <div class="dashboard-card">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-muted">Total réunions</h6>
+                            <h2 class="fw-bold" id="totalReunions">0</h2>
+                        </div>
+                        <div class="stat-icon bg-primary bg-opacity-10 text-primary">
+                            <i class="fas fa-calendar-alt"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="dashboard-card">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-muted">En cours</h6>
+                            <h2 class="fw-bold" id="activeReunions">0</h2>
+                        </div>
+                        <div class="stat-icon bg-success bg-opacity-10 text-success">
+                            <i class="fas fa-video"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="dashboard-card">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-muted">Participants</h6>
+                            <h2 class="fw-bold" id="totalParticipants">0</h2>
+                        </div>
+                        <div class="stat-icon bg-info bg-opacity-10 text-info">
+                            <i class="fas fa-users"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Actions -->
+        <div class="row g-4 mb-4">
+            <div class="col-md-6">
+                <div class="dashboard-card">
+                    <h5 class="mb-3">
+                        <i class="fas fa-plus-circle text-primary me-2"></i>Créer une réunion
+                    </h5>
+                    <form id="createMeetingForm">
+                        <div class="input-group">
+                            <input type="text" class="form-control" id="meetingName" 
+                                   placeholder="Nom de la réunion" required>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-plus me-1"></i>Créer
+                            </button>
+                        </div>
+                    </form>
+                    <div id="createMeetingResult" class="mt-3"></div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="dashboard-card">
+                    <h5 class="mb-3">
+                        <i class="fas fa-door-open text-success me-2"></i>Rejoindre une réunion
+                    </h5>
+                    <form id="joinMeetingForm">
+                        <div class="input-group">
+                            <input type="text" class="form-control" id="meetingCode" 
+                                   placeholder="Code de la réunion" required>
+                            <button type="submit" class="btn btn-success">
+                                <i class="fas fa-door-open me-1"></i>Rejoindre
+                            </button>
+                        </div>
+                    </form>
+                    <div id="joinMeetingResult" class="mt-3"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Liste des réunions -->
+        <div class="dashboard-card">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h5 class="mb-0">
+                    <i class="fas fa-list-ul text-secondary me-2"></i>Mes réunions
+                </h5>
+                <button class="btn btn-sm btn-outline-secondary" onclick="loadReunions()">
+                    <i class="fas fa-sync-alt me-1"></i>Rafraîchir
+                </button>
+            </div>
+            <div id="reunionsList">
+                <div class="text-center text-muted py-4">
+                    <i class="fas fa-inbox fa-2x d-block mb-2"></i>
+                    Aucune réunion pour le moment
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <script src="/js/config.js"></script>
+    <script>
+        // === Configuration ===
+        const API_URL = window.API_URL || 'http://localhost:3000/api';
+        const token = localStorage.getItem('token');
+        
+        if (!token) {
+            window.location.href = '/pages/login.html';
+        }
+
+        const user = JSON.parse(localStorage.getItem('user') || '{}');
+        document.getElementById('userName').textContent = `${user.prenom} ${user.nom}`;
+
+        // === Socket.IO pour les notifications en temps réel ===
+        const socket = io(window.location.origin, {
+            transports: ['websocket', 'polling']
+        });
+
+        socket.on('connect', () => {
+            console.log(' Socket connecté pour les notifications');
+            socket.emit('join-dashboard', { userId: user.id });
+        });
+
+        // === Écouter les nouvelles réunions en temps réel ===
+        socket.on('new-reunion-created', (data) => {
+            console.log(' Nouvelle réunion créée:', data);
+            loadReunions();
+            showNotification(
+                ` ${data.createur.prenom} ${data.createur.nom} a créé "${data.reunion.nom_reunion}" (${data.reunion.code_reunion})`
+            );
+        });
+
+        // === Écouter les suppressions de réunions ===
+        socket.on('reunion-deleted', (data) => {
+            console.log(' Réunion supprimée:', data);
+            loadReunions();
+            showNotification(` La réunion a été supprimée par ${data.deletedByUser || 'un administrateur'}`);
+        });
+
+        // === Écouter les mises à jour de réunions ===
+        socket.on('reunion-updated', (data) => {
+            console.log(' Réunion mise à jour:', data);
+            loadReunions();
+        });
+
+        // === Fonction de notification ===
+        function showNotification(message, type = 'info') {
+            const colors = {
+                info: '#0dcaf0',
+                success: '#28a745',
+                danger: '#dc3545',
+                warning: '#ffc107'
+            };
+            
+            const toast = document.createElement('div');
+            toast.className = `alert alert-${type} notification-toast`;
+            toast.style.borderLeft = `4px solid ${colors[type] || colors.info}`;
+            toast.innerHTML = `
+                <button class="btn-close" onclick="this.closest('.notification-toast').remove()"></button>
+                <i class="fas fa-bullhorn me-2"></i>
+                ${message}
+            `;
+            document.body.appendChild(toast);
+            
+            setTimeout(() => {
+                if (toast.parentElement) {
+                    toast.style.animation = 'slideOut 0.5s ease';
+                    setTimeout(() => toast.remove(), 500);
+                }
+            }, 5000);
+        }
+
+        // === Chargement des réunions ===
+        async function loadReunions() {
+            try {
+                const response = await fetch(`${API_URL}/reunions/`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+
+                if (!response.ok) throw new Error('Erreur de chargement');
+
+                const reunions = await response.json();
+                displayReunions(reunions);
+                updateStats(reunions);
+            } catch (error) {
+                console.error('Erreur:', error);
+            }
+        }
+
+        // === Affichage des réunions ===
+        function displayReunions(reunions) {
+            const container = document.getElementById('reunionsList');
+            
+            if (reunions.length === 0) {
+                container.innerHTML = `
+                    <div class="text-center text-muted py-4">
+                        <i class="fas fa-inbox fa-2x d-block mb-2"></i>
+                        Aucune réunion pour le moment
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = reunions.map((reunion) => {
+                const isCreator = reunion.id_createur === user.id;
+                const isAdmin = user.role === 'admin';
+                const canDelete = isCreator || isAdmin;
+                
+                return `
+                    <div class="meeting-item d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="mb-1">
+                                ${reunion.nom_reunion}
+                                ${isCreator ? '<span class="badge bg-primary ms-2"><i class="fas fa-user-edit me-1"></i>Créateur</span>' : ''}
+                                ${isAdmin && !isCreator ? '<span class="badge bg-danger ms-2"><i class="fas fa-user-shield me-1"></i>Admin</span>' : ''}
+                            </h6>
+                            <small class="text-muted">
+                                <i class="fas fa-code me-1"></i>
+                                <span class="meeting-code">${reunion.code_reunion}</span>
+                                <span class="ms-3">
+                                    <i class="fas fa-calendar-alt me-1"></i>
+                                    ${new Date(reunion.date_creation).toLocaleDateString()}
+                                </span>
+                                <span class="ms-3">
+                                    <i class="fas fa-user me-1"></i>
+                                    ${reunion.prenom} ${reunion.nom}
+                                </span>
+                                <span class="ms-3">
+                                    <span class="badge ${reunion.statut === 'active' ? 'bg-success' : 'bg-secondary'}">
+                                        ${reunion.statut === 'active' ? '<i class="fas fa-circle me-1" style="font-size: 6px;"></i>' : ''}
+                                        ${reunion.statut}
+                                    </span>
+                                </span>
+                            </small>
+                        </div>
+                        <div>
+                            <button class="btn btn-sm btn-success" onclick="joinRoom('${reunion.code_reunion}')">
+                                <i class="fas fa-door-open me-1"></i>Rejoindre
+                            </button>
+                            ${canDelete ? `
+                                <button class="btn btn-sm btn-outline-danger" onclick="deleteReunion('${reunion.id_reunion}')">
+                                    <i class="fas fa-trash-alt"></i>
+                                </button>
+                            ` : ''}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // === Mise à jour des statistiques ===
+        function updateStats(reunions) {
+            document.getElementById('totalReunions').textContent = reunions.length;
+            const active = reunions.filter(r => r.statut === 'active').length;
+            document.getElementById('activeReunions').textContent = active;
+            document.getElementById('totalParticipants').textContent = 0;
+        }
+
+        // === Rejoindre une réunion ===
+        function joinRoom(code) {
+            window.location.href = `/pages/room.html?code=${code}`;
+        }
+
+        // === Supprimer une réunion ===
+        async function deleteReunion(id) {
+            if (!confirm('Voulez-vous vraiment supprimer cette réunion ?')) return;
+            
+            try {
+                const response = await fetch(`${API_URL}/reunions/${id}`, {
+                    method: 'DELETE',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+
+                if (response.ok) {
+                    showNotification(' Réunion supprimée avec succès', 'success');
+                    loadReunions();
+                } else {
+                    const data = await response.json();
+                    showNotification(' ' + (data.message || 'Erreur lors de la suppression'), 'danger');
+                }
+            } catch (error) {
+                console.error('Erreur:', error);
+                showNotification(' Erreur de connexion au serveur', 'danger');
+            }
+        }
+
+        // === Créer une réunion ===
+        document.getElementById('createMeetingForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const nom_reunion = document.getElementById('meetingName').value;
+            const resultDiv = document.getElementById('createMeetingResult');
+
+            try {
+                const response = await fetch(`${API_URL}/reunions/create`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ nom_reunion })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    resultDiv.innerHTML = `
+                        <div class="alert alert-success">
+                            <i class="fas fa-check-circle me-2"></i>
+                            Réunion créée ! Code: <strong>${data.reunion.code_reunion}</strong>
+                            <button class="btn btn-sm btn-success ms-2" onclick="joinRoom('${data.reunion.code_reunion}')">
+                                <i class="fas fa-door-open me-1"></i>Rejoindre
+                            </button>
+                        </div>
+                    `;
+                    document.getElementById('meetingName').value = '';
+                    
+                    socket.emit('new-reunion', {
+                        reunion: data.reunion,
+                        createur: user
+                    });
+                    
+                    await loadReunions();
+                    showNotification(` Réunion "${nom_reunion}" créée avec succès ! Code: ${data.reunion.code_reunion}`, 'success');
+                } else {
+                    resultDiv.innerHTML = `
+                        <div class="alert alert-danger">${data.message || 'Erreur lors de la création'}</div>
+                    `;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <div class="alert alert-danger">Erreur de connexion au serveur</div>
+                `;
+            }
+        });
+
+        // === Rejoindre une réunion ===
+        document.getElementById('joinMeetingForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const code_reunion = document.getElementById('meetingCode').value.toUpperCase();
+            const resultDiv = document.getElementById('joinMeetingResult');
+
+            try {
+                const response = await fetch(`${API_URL}/reunions/join`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ code_reunion })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    window.location.href = `/pages/room.html?code=${code_reunion}`;
+                } else {
+                    resultDiv.innerHTML = `
+                        <div class="alert alert-danger">${data.message || 'Code invalide'}</div>
+                    `;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <div class="alert alert-danger">Erreur de connexion au serveur</div>
+                `;
+            }
+        });
+
+        // === Déconnexion ===
+        document.getElementById('logoutBtn').addEventListener('click', () => {
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+            socket.disconnect();
+            window.location.href = '/pages/login.html';
+        });
+
+        // === Rafraîchissement automatique ===
+        setInterval(loadReunions, 5000);
+
+        // === Chargement initial ===
+        loadReunions();
+    </script>
+</body>
+</html>

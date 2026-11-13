@@ -1,0 +1,1267 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Réunion - LinkMeet</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    <style>
+        body {
+            background: #1a1a1a;
+            margin: 0;
+            padding: 0;
+            height: 100vh;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            overflow: hidden;
+        }
+        .navbar-dark { background: #0d0d0d !important; }
+        
+        /* Video Grid */
+        .video-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+            padding: 15px;
+            height: calc(100vh - 120px);
+            align-content: center;
+        }
+        .video-wrapper {
+            position: relative;
+            background: #2a2a2a;
+            border-radius: 12px;
+            overflow: hidden;
+            aspect-ratio: 16/9;
+            min-height: 200px;
+            border: 2px solid transparent;
+            transition: all 0.3s ease;
+        }
+        .video-wrapper.active { border-color: #28a745; }
+        .video-wrapper.screen-sharing { 
+            border-color: #ffc107; 
+            box-shadow: 0 0 30px rgba(255, 193, 7, 0.3);
+        }
+        .video-wrapper video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            background: #1a1a1a;
+        }
+        .video-wrapper .screen-share-badge {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: #ffc107;
+            color: #212529;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: 600;
+            display: none;
+            z-index: 10;
+        }
+        .video-wrapper.screen-sharing .screen-share-badge { display: block; }
+        .video-label {
+            position: absolute;
+            bottom: 10px;
+            left: 10px;
+            color: white;
+            background: rgba(0,0,0,0.75);
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            backdrop-filter: blur(5px);
+            z-index: 5;
+        }
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            display: inline-block;
+        }
+        .status-dot.on { background: #28a745; animation: pulse 1.5s infinite; }
+        .status-dot.off { background: #dc3545; }
+        .status-dot.waiting { background: #ffc107; animation: pulse 1s infinite; }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+        .video-placeholder {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            flex-direction: column;
+            color: #666;
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: #1a1a1a;
+            padding: 20px;
+            text-align: center;
+        }
+        .video-placeholder i { font-size: 3rem; margin-bottom: 10px; }
+        
+        /* Video Controls */
+        .video-controls {
+            position: fixed;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 12px;
+            background: rgba(0,0,0,0.85);
+            padding: 12px 20px;
+            border-radius: 50px;
+            backdrop-filter: blur(10px);
+            z-index: 1000;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        .video-controls .btn {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+            border: none;
+            transition: all 0.3s ease;
+            position: relative;
+        }
+        .video-controls .btn:hover { transform: scale(1.1); }
+        .video-controls .btn-danger { background: #dc3545; color: white; }
+        .video-controls .btn-danger:hover { background: #c82333; }
+        .video-controls .btn-light { background: #f8f9fa; color: #333; }
+        .video-controls .btn-light.active { background: #28a745; color: white; }
+        .video-controls .btn-light.inactive { background: #dc3545; color: white; }
+        .video-controls .btn-warning { background: #ffc107; color: #333; }
+        .video-controls .btn-warning.active { background: #ffc107; color: #333; box-shadow: 0 0 20px rgba(255, 193, 7, 0.5); }
+        .video-controls .btn .badge-icon {
+            position: absolute;
+            top: -5px;
+            right: -5px;
+            background: #ffc107;
+            color: #212529;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            font-size: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+        }
+        
+        /* Chat Container */
+        .chat-container {
+            position: fixed;
+            right: 0;
+            top: 56px;
+            bottom: 0;
+            width: 350px;
+            background: rgba(255,255,255,0.05);
+            backdrop-filter: blur(10px);
+            border-left: 1px solid rgba(255,255,255,0.1);
+            display: flex;
+            flex-direction: column;
+            transition: transform 0.3s ease;
+            z-index: 100;
+        }
+        .chat-container.hidden { transform: translateX(100%); }
+        .chat-header {
+            padding: 15px 20px;
+            color: white;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .chat-header .badge {
+            background: rgba(255,255,255,0.1);
+            color: #aaa;
+            font-size: 11px;
+        }
+        .chat-messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 15px 20px;
+        }
+        .chat-message {
+            margin-bottom: 10px;
+            max-width: 85%;
+            padding: 10px 16px;
+            border-radius: 12px;
+            font-size: 14px;
+            word-wrap: break-word;
+            animation: fadeIn 0.3s ease;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .chat-message.sent { 
+            background: #667eea; 
+            color: white; 
+            margin-left: auto; 
+            border-bottom-right-radius: 4px; 
+        }
+        .chat-message.received { 
+            background: rgba(255,255,255,0.1); 
+            color: white; 
+            margin-right: auto; 
+            border-bottom-left-radius: 4px; 
+        }
+        .chat-message.system { 
+            background: rgba(255, 193, 7, 0.15); 
+            color: #ffc107; 
+            text-align: center; 
+            margin: 10px auto; 
+            max-width: 90%; 
+            font-style: italic;
+            font-size: 12px;
+            border-radius: 20px;
+        }
+        .chat-message .msg-user { 
+            font-size: 11px; 
+            opacity: 0.7; 
+            margin-bottom: 3px; 
+        }
+        .chat-message .msg-user .emoji { font-size: 14px; }
+        .chat-message .msg-text { 
+            font-size: 14px;
+            line-height: 1.5;
+            word-break: break-word;
+        }
+        .chat-message .msg-text .emoji {
+            font-size: 18px;
+            vertical-align: middle;
+        }
+        .chat-message .msg-time { 
+            font-size: 10px; 
+            opacity: 0.5; 
+            margin-top: 3px; 
+            text-align: right; 
+        }
+        
+        /* Chat Input */
+        .chat-input-area {
+            padding: 15px 20px;
+            border-top: 1px solid rgba(255,255,255,0.1);
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .chat-input-row {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+        .chat-input-row input {
+            flex: 1;
+            padding: 10px 16px;
+            border-radius: 25px;
+            border: none;
+            background: rgba(255,255,255,0.1);
+            color: white;
+            font-size: 14px;
+        }
+        .chat-input-row input::placeholder { color: rgba(255,255,255,0.5); }
+        .chat-input-row input:focus { outline: none; background: rgba(255,255,255,0.15); }
+        .chat-input-row button {
+            background: #667eea;
+            border: none;
+            border-radius: 50%;
+            width: 44px;
+            height: 44px;
+            color: white;
+            transition: all 0.3s ease;
+        }
+        .chat-input-row button:hover { transform: scale(1.05); background: #5a6fd6; }
+        
+        /* Emoji Picker */
+        .emoji-picker {
+            display: none;
+            background: rgba(30, 30, 30, 0.95);
+            border-radius: 12px;
+            padding: 10px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255,255,255,0.1);
+            max-height: 180px;
+            overflow-y: auto;
+        }
+        .emoji-picker.show { display: block; }
+        .emoji-picker .emoji-category {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 4px;
+            justify-content: center;
+        }
+        .emoji-picker .emoji-btn {
+            background: none;
+            border: none;
+            font-size: 24px;
+            padding: 4px 8px;
+            cursor: pointer;
+            border-radius: 6px;
+            transition: all 0.2s ease;
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .emoji-picker .emoji-btn:hover {
+            background: rgba(255,255,255,0.1);
+            transform: scale(1.2);
+        }
+        .emoji-picker .emoji-btn:active { transform: scale(0.9); }
+        .emoji-picker .emoji-btn .emoji-label {
+            display: none;
+        }
+        .emoji-toggle {
+            background: rgba(255,255,255,0.05);
+            border: none;
+            border-radius: 50%;
+            width: 44px;
+            height: 44px;
+            color: #aaa;
+            font-size: 1.2rem;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .emoji-toggle:hover {
+            background: rgba(255,255,255,0.1);
+            color: white;
+        }
+        .emoji-toggle.active {
+            background: rgba(255, 193, 7, 0.2);
+            color: #ffc107;
+        }
+        
+        /* Quick Emoji Shortcuts */
+        .quick-emoji {
+            display: flex;
+            gap: 4px;
+            padding: 4px 0;
+            flex-wrap: wrap;
+        }
+        .quick-emoji .quick-emoji-btn {
+            background: rgba(255,255,255,0.05);
+            border: none;
+            border-radius: 20px;
+            padding: 4px 10px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            color: #aaa;
+        }
+        .quick-emoji .quick-emoji-btn:hover {
+            background: rgba(255,255,255,0.1);
+            color: white;
+            transform: scale(1.05);
+        }
+        
+        .toggle-chat {
+            position: fixed;
+            right: 20px;
+            bottom: 100px;
+            z-index: 200;
+            background: rgba(0,0,0,0.7);
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            font-size: 1.2rem;
+        }
+        .connection-status {
+            position: fixed;
+            top: 70px;
+            right: 20px;
+            z-index: 300;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 12px;
+            background: rgba(0,0,0,0.8);
+            color: #ffc107;
+        }
+        .connection-status.connected { color: #28a745; }
+        .connection-status.error { color: #dc3545; }
+        
+        /* Toasts */
+        .error-toast {
+            position: fixed;
+            top: 70px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 1000;
+            background: rgba(220, 53, 69, 0.95);
+            color: white;
+            padding: 12px 24px;
+            border-radius: 12px;
+            font-size: 14px;
+            display: none;
+            max-width: 90%;
+            text-align: center;
+            backdrop-filter: blur(10px);
+        }
+        .error-toast.show { display: block; animation: slideDown 0.3s ease; }
+        .success-toast {
+            position: fixed;
+            top: 70px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 1000;
+            background: rgba(40, 167, 69, 0.95);
+            color: white;
+            padding: 12px 24px;
+            border-radius: 12px;
+            font-size: 14px;
+            display: none;
+            max-width: 90%;
+            text-align: center;
+        }
+        .success-toast.show { display: block; animation: slideDown 0.3s ease; }
+        @keyframes slideDown {
+            from { transform: translate(-50%, -20px); opacity: 0; }
+            to { transform: translate(-50%, 0); opacity: 1; }
+        }
+        
+        @media (max-width: 768px) {
+            .chat-container { width: 100%; top: 56px; }
+            .video-controls { gap: 8px; padding: 10px 15px; }
+            .video-controls .btn { width: 45px; height: 45px; font-size: 1rem; }
+            .video-grid { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; padding: 8px; height: calc(100vh - 110px); }
+            .emoji-picker { max-height: 150px; }
+        }
+    </style>
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar navbar-dark bg-dark">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="#">
+                <i class="bi bi-camera-video-fill me-2"></i>LinkMeet
+            </a>
+            <div>
+                <span class="text-white-50 me-2" id="roomName">Réunion</span>
+                <span class="badge bg-info" id="roomCode">CODE</span>
+                <span class="badge bg-secondary ms-2" id="participantCount">0 participants</span>
+                <button class="btn btn-danger btn-sm ms-2" onclick="leaveRoom()">
+                    <i class="bi bi-box-arrow-right me-1"></i>Quitter
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Status -->
+    <div id="connectionStatus" class="connection-status">
+        <i class="bi bi-circle-fill me-1" style="font-size: 8px;"></i>
+        Connexion...
+    </div>
+
+    <!-- Toasts -->
+    <div id="errorToast" class="error-toast">
+        <i class="bi bi-exclamation-triangle me-2"></i>
+        <span id="errorMessage">Erreur</span>
+    </div>
+    <div id="successToast" class="success-toast">
+        <i class="bi bi-check-circle me-2"></i>
+        <span id="successMessage">Succès</span>
+    </div>
+
+    <!-- Toggle Chat -->
+    <button class="toggle-chat btn btn-dark" onclick="toggleChat()">
+        <i class="bi bi-chat-dots"></i>
+        <span class="badge bg-danger" id="unreadBadge" style="display: none; position: absolute; top: -5px; right: -5px; font-size: 10px;">0</span>
+    </button>
+
+    <!-- Video Grid -->
+    <div class="video-grid" id="videoGrid">
+        <!-- Local video -->
+        <div class="video-wrapper" id="localVideoWrapper">
+            <video id="localVideo" autoplay muted playsinline></video>
+            <div class="screen-share-badge">
+                <i class="bi bi-display me-1"></i>Partage d'écran
+            </div>
+            <div class="video-placeholder" id="localPlaceholder">
+                <i class="bi bi-camera-video-off text-secondary" style="font-size: 3rem;"></i>
+                <span>Caméra désactivée</span>
+                <button class="btn btn-primary btn-sm mt-2" onclick="initCamera()">
+                    <i class="bi bi-camera-video me-1"></i>Activer la caméra
+                </button>
+            </div>
+            <div class="video-label">
+                <span class="status-dot off" id="localStatusDot"></span>
+                <span id="localStatusText">Vous</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Video Controls -->
+    <div class="video-controls">
+        <button class="btn btn-light" id="audioBtn" onclick="toggleAudio()" title="Micro">
+            <i class="bi bi-mic"></i>
+        </button>
+        <button class="btn btn-light" id="videoBtn" onclick="toggleVideo()" title="Caméra">
+            <i class="bi bi-camera-video"></i>
+        </button>
+        <button class="btn btn-light" id="screenBtn" onclick="toggleScreenShare()" title="Partage d'écran">
+            <i class="bi bi-display"></i>
+            <span class="badge-icon" id="screenBadge" style="display: none;">●</span>
+        </button>
+        <button class="btn btn-danger" onclick="leaveRoom()" title="Quitter">
+            <i class="bi bi-telephone-x"></i>
+        </button>
+    </div>
+
+    <!-- Chat -->
+    <div class="chat-container" id="chatContainer">
+        <div class="chat-header">
+            <span><i class="bi bi-chat-dots me-2"></i>Chat</span>
+            <span class="badge" id="chatUserCount">0 en ligne</span>
+        </div>
+        <div class="chat-messages" id="chatMessages">
+            <div class="text-center text-white-50 small py-3">
+                <i class="bi bi-chat-dots fs-4 d-block mb-2"></i>
+                Bienvenue dans le chat !
+                <br><small>💡 Utilisez 😊 pour les emojis</small>
+            </div>
+        </div>
+        <div class="chat-input-area">
+            <div class="quick-emoji" id="quickEmoji">
+                <button class="quick-emoji-btn" onclick="insertEmoji('😊')">😊</button>
+                <button class="quick-emoji-btn" onclick="insertEmoji('😂')">😂</button>
+                <button class="quick-emoji-btn" onclick="insertEmoji('❤️')">❤️</button>
+                <button class="quick-emoji-btn" onclick="insertEmoji('👍')">👍</button>
+                <button class="quick-emoji-btn" onclick="insertEmoji('👋')">👋</button>
+                <button class="quick-emoji-btn" onclick="insertEmoji('🎉')">🎉</button>
+                <button class="quick-emoji-btn" onclick="insertEmoji('🔥')">🔥</button>
+                <button class="quick-emoji-btn" onclick="insertEmoji('💪')">💪</button>
+                <button class="quick-emoji-btn" onclick="insertEmoji('🤣')">🤣</button>
+                <button class="quick-emoji-btn" onclick="insertEmoji('🥳')">🥳</button>
+            </div>
+            <div class="chat-input-row">
+                <button class="emoji-toggle" id="emojiToggle" onclick="toggleEmojiPicker()" title="Emojis">
+                    <i class="bi bi-emoji-smile"></i>
+                </button>
+                <input type="text" id="chatInput" placeholder="Écrivez un message..." 
+                       onkeypress="if(event.key==='Enter') sendMessage()"
+                       oninput="checkEmojiShortcut()">
+                <button onclick="sendMessage()"><i class="bi bi-send"></i></button>
+            </div>
+            <!-- Emoji Picker -->
+            <div class="emoji-picker" id="emojiPicker">
+                <div class="emoji-category">
+                    <!-- Emojis fréquemment utilisés -->
+                    <button class="emoji-btn" onclick="insertEmoji('😊')">😊</button>
+                    <button class="emoji-btn" onclick="insertEmoji('😂')">😂</button>
+                    <button class="emoji-btn" onclick="insertEmoji('❤️')">❤️</button>
+                    <button class="emoji-btn" onclick="insertEmoji('👍')">👍</button>
+                    <button class="emoji-btn" onclick="insertEmoji('👋')">👋</button>
+                    <button class="emoji-btn" onclick="insertEmoji('🎉')">🎉</button>
+                    <button class="emoji-btn" onclick="insertEmoji('🔥')">🔥</button>
+                    <button class="emoji-btn" onclick="insertEmoji('💪')">💪</button>
+                    <button class="emoji-btn" onclick="insertEmoji('🤣')">🤣</button>
+                    <button class="emoji-btn" onclick="insertEmoji('🥳')">🥳</button>
+                    <button class="emoji-btn" onclick="insertEmoji('😍')">😍</button>
+                    <button class="emoji-btn" onclick="insertEmoji('😎')">😎</button>
+                    <button class="emoji-btn" onclick="insertEmoji('🤔')">🤔</button>
+                    <button class="emoji-btn" onclick="insertEmoji('😅')">😅</button>
+                    <button class="emoji-btn" onclick="insertEmoji('🙏')">🙏</button>
+                    <button class="emoji-btn" onclick="insertEmoji('✨')">✨</button>
+                    <button class="emoji-btn" onclick="insertEmoji('💯')">💯</button>
+                    <button class="emoji-btn" onclick="insertEmoji('👏')">👏</button>
+                    <button class="emoji-btn" onclick="insertEmoji('🙌')">🙌</button>
+                    <button class="emoji-btn" onclick="insertEmoji('🤝')">🤝</button>
+                    <button class="emoji-btn" onclick="insertEmoji('😁')">😁</button>
+                    <button class="emoji-btn" onclick="insertEmoji('😘')">😘</button>
+                    <button class="emoji-btn" onclick="insertEmoji('😜')">😜</button>
+                    <button class="emoji-btn" onclick="insertEmoji('🤗')">🤗</button>
+                    <button class="emoji-btn" onclick="insertEmoji('🤩')">🤩</button>
+                    <button class="emoji-btn" onclick="insertEmoji('😇')">😇</button>
+                    <button class="emoji-btn" onclick="insertEmoji('🥰')">🥰</button>
+                    <button class="emoji-btn" onclick="insertEmoji('😉')">😉</button>
+                    <button class="emoji-btn" onclick="insertEmoji('😏')">😏</button>
+                    <button class="emoji-btn" onclick="insertEmoji('😒')">😒</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <script src="/js/config.js"></script>
+    <script>
+        // === Configuration ===
+        const API_URL = window.API_URL || window.location.origin + '/api';
+        const token = localStorage.getItem('token');
+        
+        if (!token) {
+            window.location.href = '/pages/login.html';
+        }
+
+        // === Récupération du code ===
+        const urlParams = new URLSearchParams(window.location.search);
+        const roomCode = urlParams.get('code');
+        const roomId = urlParams.get('id') || '1';
+
+        if (!roomCode) {
+            window.location.href = '/pages/dashboard.html';
+        }
+
+        document.getElementById('roomName').textContent = `Réunion ${roomCode}`;
+        document.getElementById('roomCode').textContent = roomCode;
+
+        // === Socket.IO ===
+        const socket = io(window.location.origin, {
+            transports: ['websocket', 'polling'],
+            reconnection: true,
+            reconnectionAttempts: 5,
+            reconnectionDelay: 1000
+        });
+
+        // === WebRTC ===
+        let localStream = null;
+        let peerConnections = {};
+        let screenStream = null;
+        let isAudioEnabled = true;
+        let isVideoEnabled = false;
+        let isScreenSharing = false;
+        let cameraInitialized = false;
+        let isInRoom = false;
+
+        // === DOM Elements ===
+        const localVideo = document.getElementById('localVideo');
+        const localPlaceholder = document.getElementById('localPlaceholder');
+        const localStatusDot = document.getElementById('localStatusDot');
+        const localStatusText = document.getElementById('localStatusText');
+        const localVideoWrapper = document.getElementById('localVideoWrapper');
+        const videoGrid = document.getElementById('videoGrid');
+        const chatMessages = document.getElementById('chatMessages');
+        const chatInput = document.getElementById('chatInput');
+        const errorToast = document.getElementById('errorToast');
+        const errorMessage = document.getElementById('errorMessage');
+        const successToast = document.getElementById('successToast');
+        const successMessage = document.getElementById('successMessage');
+        const participantCount = document.getElementById('participantCount');
+        const chatUserCount = document.getElementById('chatUserCount');
+        const screenBtn = document.getElementById('screenBtn');
+        const screenBadge = document.getElementById('screenBadge');
+        const emojiPicker = document.getElementById('emojiPicker');
+        const emojiToggle = document.getElementById('emojiToggle');
+        const unreadBadge = document.getElementById('unreadBadge');
+        let unreadCount = 0;
+
+        // === Utilisateur ===
+        const user = JSON.parse(localStorage.getItem('user') || '{}');
+
+        // === Notifications ===
+        function showError(msg) {
+            errorMessage.textContent = msg;
+            errorToast.classList.add('show');
+            setTimeout(() => errorToast.classList.remove('show'), 5000);
+        }
+
+        function showSuccess(msg) {
+            successMessage.textContent = msg;
+            successToast.classList.add('show');
+            setTimeout(() => successToast.classList.remove('show'), 3000);
+        }
+
+        function updateStatus(status, connected = false, error = false) {
+            const el = document.getElementById('connectionStatus');
+            el.className = 'connection-status' + (connected ? ' connected' : '') + (error ? ' error' : '');
+            el.innerHTML = `<i class="bi bi-circle-fill me-1" style="font-size: 8px;"></i> ${status}`;
+        }
+
+        function updateLocalStatus(on) {
+            localStatusDot.className = `status-dot ${on ? 'on' : 'off'}`;
+            localStatusText.textContent = on ? 'Vous ' : 'Vous ';
+        }
+
+        function updateParticipantCount(count) {
+            participantCount.textContent = `${count} participant${count > 1 ? 's' : ''}`;
+            chatUserCount.textContent = `${count} en ligne`;
+        }
+
+        function addSystemMessage(text) {
+            const div = document.createElement('div');
+            div.className = 'chat-message system';
+            div.innerHTML = `<i class="bi bi-info-circle me-1"></i> ${text}`;
+            chatMessages.appendChild(div);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+
+        // === Emoji Functions ===
+        function toggleEmojiPicker() {
+            emojiPicker.classList.toggle('show');
+            emojiToggle.classList.toggle('active');
+        }
+
+        function insertEmoji(emoji) {
+            const input = document.getElementById('chatInput');
+            const start = input.selectionStart;
+            const end = input.selectionEnd;
+            const text = input.value;
+            input.value = text.substring(0, start) + emoji + text.substring(end);
+            input.focus();
+            const newCursorPos = start + emoji.length;
+            input.selectionStart = newCursorPos;
+            input.selectionEnd = newCursorPos;
+            emojiPicker.classList.remove('show');
+            emojiToggle.classList.remove('active');
+            input.dispatchEvent(new Event('input'));
+        }
+
+        function checkEmojiShortcut() {
+            const input = document.getElementById('chatInput');
+            const value = input.value;
+            // Raccourci : taper : suivi du nom de l'emoji
+            const emojiMap = {
+                ':smile': '😊',
+                ':happy': '😊',
+                ':laugh': '😂',
+                ':love': '❤️',
+                ':heart': '❤️',
+                ':like': '👍',
+                ':thumb': '👍',
+                ':wave': '👋',
+                ':party': '🎉',
+                ':fire': '🔥',
+                ':strong': '💪',
+                ':rofl': '🤣',
+                ':celebrate': '🥳',
+                ':kiss': '😘',
+                ':wink': '😜',
+                ':hug': '🤗',
+                ':star': '✨',
+                ':100': '💯',
+                ':clap': '👏',
+                ':pray': '🙏',
+                ':cool': '😎',
+                ':think': '🤔',
+                ':sweat': '😅'
+            };
+
+            for (const [shortcut, emoji] of Object.entries(emojiMap)) {
+                if (value.includes(shortcut)) {
+                    input.value = value.replace(shortcut, emoji);
+                    input.dispatchEvent(new Event('input'));
+                    break;
+                }
+            }
+        }
+
+        // Fermer le sélecteur d'emojis en cliquant ailleurs
+        document.addEventListener('click', function(event) {
+            const picker = document.getElementById('emojiPicker');
+            const toggle = document.getElementById('emojiToggle');
+            if (!picker.contains(event.target) && !toggle.contains(event.target)) {
+                picker.classList.remove('show');
+                toggle.classList.remove('active');
+            }
+        });
+
+        // === Initialisation de la caméra ===
+        async function initCamera() {
+            try {
+                if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                    showError('Votre navigateur ne supporte pas la caméra');
+                    return false;
+                }
+
+                updateStatus('Demande d\'accès...');
+                localPlaceholder.innerHTML = '<i class="bi bi-hourglass-split text-warning" style="font-size: 3rem;"></i><span>Demande d\'accès...</span>';
+
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: 'user' },
+                    audio: true
+                });
+
+                localStream = stream;
+                localVideo.srcObject = localStream;
+                cameraInitialized = true;
+                isVideoEnabled = true;
+
+                localPlaceholder.style.display = 'none';
+                localVideo.style.display = 'block';
+                updateLocalStatus(true);
+                document.getElementById('videoBtn').className = 'btn btn-light active';
+                document.getElementById('videoBtn').innerHTML = '<i class="bi bi-camera-video"></i>';
+                document.getElementById('audioBtn').className = 'btn btn-light active';
+                document.getElementById('audioBtn').innerHTML = '<i class="bi bi-mic"></i>';
+
+                showSuccess(' Caméra et micro activés !');
+                updateStatus('Caméra active', true);
+
+                if (!isInRoom) {
+                    joinRoom();
+                }
+
+                return true;
+
+            } catch (error) {
+                console.error(' Erreur caméra:', error);
+                updateLocalStatus(false);
+                showError('Impossible d\'accéder à la caméra.');
+                updateStatus('Erreur caméra', false, true);
+
+                localPlaceholder.innerHTML = `
+                    <i class="bi bi-camera-video-off text-danger" style="font-size: 3rem;"></i>
+                    <span style="color: #dc3545;">Impossible d'accéder à la caméra</span>
+                    <button class="btn btn-primary btn-sm mt-2" onclick="initCamera()">
+                        <i class="bi bi-arrow-repeat me-1"></i>Réessayer
+                    </button>
+                `;
+                localPlaceholder.style.display = 'flex';
+                localVideo.style.display = 'none';
+
+                if (!isInRoom) {
+                    joinRoom();
+                }
+
+                return false;
+            }
+        }
+
+        // === Rejoindre la salle ===
+        function joinRoom() {
+            if (isInRoom) return;
+            
+            socket.emit('join-room', {
+                roomId: roomId,
+                userId: user.id,
+                userName: `${user.prenom} ${user.nom}`
+            });
+            
+            isInRoom = true;
+        }
+
+        // === WebRTC ===
+        function createPeerConnection(socketId) {
+            const pc = new RTCPeerConnection({
+                iceServers: [
+                    { urls: 'stun:stun.l.google.com:19302' },
+                    { urls: 'stun:stun1.l.google.com:19302' }
+                ]
+            });
+
+            if (localStream) {
+                localStream.getTracks().forEach(track => {
+                    pc.addTrack(track, localStream);
+                });
+            }
+
+            pc.ontrack = (event) => {
+                if (!document.getElementById(`remote-${socketId}`)) {
+                    addRemoteUser(socketId, `Participant ${socketId}`);
+                }
+                const video = document.getElementById(`remoteVideo-${socketId}`);
+                if (video && event.streams[0]) {
+                    video.srcObject = event.streams[0];
+                    video.play().catch(e => console.log('Erreur lecture:', e));
+                    const placeholder = document.getElementById(`remotePlaceholder-${socketId}`);
+                    if (placeholder) placeholder.style.display = 'none';
+                }
+            };
+
+            pc.onicecandidate = (event) => {
+                if (event.candidate) {
+                    socket.emit('ice-candidate', {
+                        roomId: roomId,
+                        targetSocketId: socketId,
+                        candidate: event.candidate
+                    });
+                }
+            };
+
+            peerConnections[socketId] = pc;
+            return pc;
+        }
+
+        // === Socket Events ===
+        socket.on('connect', () => {
+            console.log(' Socket connecté');
+            updateStatus('Connecté', true);
+        });
+
+        socket.on('disconnect', () => {
+            console.log(' Socket déconnecté');
+            updateStatus('Déconnecté', false);
+        });
+
+        socket.on('room-users', (users) => {
+            console.log(' Participants reçus:', users);
+            updateParticipantCount(users.length);
+            
+            users.forEach(u => {
+                if (u.userId !== user.id) {
+                    const id = u.socketId || u.userId;
+                    if (!document.getElementById(`remote-${id}`)) {
+                        addRemoteUser(id, u.userName || 'Participant');
+                    }
+                }
+            });
+        });
+
+        socket.on('user-joined', (data) => {
+            console.log(` ${data.userName} a rejoint`);
+            if (data.users) {
+                updateParticipantCount(data.users.length);
+            }
+            if (data.userId !== user.id && data.socketId) {
+                addRemoteUser(data.socketId, data.userName);
+                setTimeout(() => createOffer(data.socketId), 500);
+            }
+            addSystemMessage(` ${data.userName} a rejoint la réunion`);
+        });
+
+        socket.on('user-left', (data) => {
+            const socketId = data.socketId || data.userId;
+            removeRemoteUser(socketId);
+            addSystemMessage(` Un participant a quitté la réunion`);
+        });
+
+        // === WebRTC Events ===
+        socket.on('offer', async (data) => {
+            try {
+                const pc = createPeerConnection(data.from);
+                await pc.setRemoteDescription(new RTCSessionDescription(data.offer));
+                const answer = await pc.createAnswer();
+                await pc.setLocalDescription(answer);
+                socket.emit('answer', {
+                    roomId: roomId,
+                    targetSocketId: data.from,
+                    answer: answer
+                });
+            } catch (error) {
+                console.error('Erreur offer:', error);
+            }
+        });
+
+        socket.on('answer', async (data) => {
+            try {
+                const pc = peerConnections[data.from];
+                if (pc) {
+                    await pc.setRemoteDescription(new RTCSessionDescription(data.answer));
+                }
+            } catch (error) {
+                console.error('Erreur answer:', error);
+            }
+        });
+
+        socket.on('ice-candidate', async (data) => {
+            try {
+                const pc = peerConnections[data.from];
+                if (pc) {
+                    await pc.addIceCandidate(new RTCIceCandidate(data.candidate));
+                }
+            } catch (error) {
+                console.error('Erreur ICE:', error);
+            }
+        });
+
+        // === Messages ===
+        socket.on('new-message', (data) => {
+            displayMessage(data, false);
+            // Notifier si le chat est caché
+            if (document.getElementById('chatContainer').classList.contains('hidden')) {
+                unreadCount++;
+                unreadBadge.textContent = unreadCount;
+                unreadBadge.style.display = 'flex';
+            }
+        });
+
+        function sendMessage() {
+            const message = chatInput.value.trim();
+            if (!message) return;
+
+            // Nettoyer les raccourcis emoji restants
+            const cleanMessage = message.replace(/:[a-z_]+/g, '');
+            
+            socket.emit('send-message', {
+                roomId: roomId,
+                userId: user.id,
+                message: cleanMessage || message
+            });
+
+            displayMessage({
+                message: cleanMessage || message,
+                prenom: user.prenom,
+                nom: user.nom,
+                date_envoi: new Date().toISOString()
+            }, true);
+
+            chatInput.value = '';
+            // Fermer le sélecteur d'emojis
+            emojiPicker.classList.remove('show');
+            emojiToggle.classList.remove('active');
+        }
+
+        function displayMessage(data, isSent) {
+            const div = document.createElement('div');
+            div.className = `chat-message ${isSent ? 'sent' : 'received'}`;
+            const userDisplay = isSent ? 'Vous' : `${data.prenom} ${data.nom}`;
+            div.innerHTML = `
+                <div class="msg-user">${userDisplay}</div>
+                <div class="msg-text">${data.message}</div>
+                <div class="msg-time">${new Date(data.date_envoi).toLocaleTimeString()}</div>
+            `;
+            chatMessages.appendChild(div);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+            
+            const welcome = chatMessages.querySelector('.text-center');
+            if (welcome) welcome.remove();
+        }
+
+        // === UI ===
+        function addRemoteUser(socketId, userName) {
+            if (document.getElementById(`remote-${socketId}`)) return;
+
+            const wrapper = document.createElement('div');
+            wrapper.className = 'video-wrapper';
+            wrapper.id = `remote-${socketId}`;
+            wrapper.innerHTML = `
+                <video id="remoteVideo-${socketId}" autoplay playsinline></video>
+                <div class="screen-share-badge">
+                    <i class="bi bi-display me-1"></i>Partage d'écran
+                </div>
+                <div class="video-placeholder" id="remotePlaceholder-${socketId}">
+                    <i class="bi bi-person-circle text-secondary" style="font-size: 3rem;"></i>
+                    <span>${userName} se connecte...</span>
+                </div>
+                <div class="video-label">
+                    <span class="status-dot waiting"></span>
+                    <span>${userName}</span>
+                </div>
+            `;
+            videoGrid.appendChild(wrapper);
+        }
+
+        function removeRemoteUser(socketId) {
+            const el = document.getElementById(`remote-${socketId}`);
+            if (el) el.remove();
+            if (peerConnections[socketId]) {
+                peerConnections[socketId].close();
+                delete peerConnections[socketId];
+            }
+        }
+
+        async function createOffer(targetSocketId) {
+            try {
+                const pc = createPeerConnection(targetSocketId);
+                const offer = await pc.createOffer();
+                await pc.setLocalDescription(offer);
+                socket.emit('offer', {
+                    roomId: roomId,
+                    targetSocketId: targetSocketId,
+                    offer: offer
+                });
+            } catch (error) {
+                console.error('Erreur création offre:', error);
+            }
+        }
+
+        // === Contrôles ===
+        function toggleAudio() {
+            if (!localStream) {
+                showError('Le micro n\'est pas initialisé');
+                return;
+            }
+            const audioTrack = localStream.getAudioTracks()[0];
+            if (audioTrack) {
+                isAudioEnabled = !isAudioEnabled;
+                audioTrack.enabled = isAudioEnabled;
+                const btn = document.getElementById('audioBtn');
+                btn.innerHTML = isAudioEnabled ? '<i class="bi bi-mic"></i>' : '<i class="bi bi-mic-mute"></i>';
+                btn.className = `btn ${isAudioEnabled ? 'btn-light active' : 'btn-light inactive'}`;
+            }
+        }
+
+        function toggleVideo() {
+            if (!localStream) {
+                showError('La caméra n\'est pas initialisée');
+                return;
+            }
+            const videoTrack = localStream.getVideoTracks()[0];
+            if (videoTrack) {
+                isVideoEnabled = !isVideoEnabled;
+                videoTrack.enabled = isVideoEnabled;
+                const btn = document.getElementById('videoBtn');
+                btn.innerHTML = isVideoEnabled ? '<i class="bi bi-camera-video"></i>' : '<i class="bi bi-camera-video-off"></i>';
+                btn.className = `btn ${isVideoEnabled ? 'btn-light active' : 'btn-light inactive'}`;
+                
+                if (isVideoEnabled) {
+                    localVideo.style.display = 'block';
+                    localPlaceholder.style.display = 'none';
+                    updateLocalStatus(true);
+                } else {
+                    localVideo.style.display = 'none';
+                    localPlaceholder.style.display = 'flex';
+                    localPlaceholder.innerHTML = `
+                        <i class="bi bi-camera-video-off text-muted" style="font-size: 3rem;"></i>
+                        <span>Caméra désactivée</span>
+                        <button class="btn btn-primary btn-sm mt-2" onclick="toggleVideo()">
+                            <i class="bi bi-camera-video me-1"></i>Activer
+                        </button>
+                    `;
+                    updateLocalStatus(false);
+                }
+            }
+        }
+
+        // === Partage d'écran ===
+        async function toggleScreenShare() {
+            if (window.location.protocol !== 'https:') {
+                showError(' Le partage d\'écran nécessite HTTPS. Utilisez https://');
+                return;
+            }
+
+            if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia) {
+                showError(' Votre navigateur ne supporte pas le partage d\'écran.');
+                return;
+            }
+
+            if (isScreenSharing) {
+                stopScreenShare();
+                return;
+            }
+
+            try {
+                showSuccess(' Sélectionnez l\'écran ou la fenêtre à partager...');
+                updateStatus('Sélection de l\'écran...');
+
+                const stream = await navigator.mediaDevices.getDisplayMedia({
+                    video: { cursor: 'always' },
+                    audio: { echoCancellation: true, noiseSuppression: true }
+                });
+
+                screenStream = stream;
+                isScreenSharing = true;
+
+                screenBtn.className = 'btn btn-warning active';
+                screenBtn.innerHTML = '<i class="bi bi-display"></i>';
+                screenBadge.style.display = 'flex';
+                screenBadge.textContent = '●';
+
+                localVideoWrapper.classList.add('screen-sharing');
+                localVideoWrapper.querySelector('.screen-share-badge').style.display = 'block';
+
+                const screenVideoTrack = stream.getVideoTracks()[0];
+                Object.values(peerConnections).forEach(pc => {
+                    const sender = pc.getSenders().find(s => s.track && s.track.kind === 'video');
+                    if (sender) {
+                        sender.replaceTrack(screenVideoTrack);
+                    }
+                });
+
+                addSystemMessage(` ${user.prenom} ${user.nom} partage son écran`);
+
+                screenVideoTrack.onended = () => {
+                    stopScreenShare();
+                };
+
+                showSuccess(' Partage d\'écran activé !');
+                updateStatus('Partage d\'écran', true);
+
+            } catch (error) {
+                console.error(' Erreur partage d\'écran:', error);
+                showError(' Erreur: ' + error.message);
+                updateStatus('Erreur partage', false, true);
+                isScreenSharing = false;
+            }
+        }
+
+        function stopScreenShare() {
+            if (!isScreenSharing) return;
+
+            if (screenStream) {
+                screenStream.getTracks().forEach(track => track.stop());
+                screenStream = null;
+            }
+
+            isScreenSharing = false;
+
+            screenBtn.className = 'btn btn-light';
+            screenBtn.innerHTML = '<i class="bi bi-display"></i>';
+            screenBadge.style.display = 'none';
+
+            localVideoWrapper.classList.remove('screen-sharing');
+            localVideoWrapper.querySelector('.screen-share-badge').style.display = 'none';
+
+            if (localStream) {
+                const videoTrack = localStream.getVideoTracks()[0];
+                if (videoTrack) {
+                    Object.values(peerConnections).forEach(pc => {
+                        const sender = pc.getSenders().find(s => s.track && s.track.kind === 'video');
+                        if (sender) {
+                            sender.replaceTrack(videoTrack);
+                        }
+                    });
+                }
+            }
+
+            addSystemMessage(` ${user.prenom} ${user.nom} a arrêté le partage d'écran`);
+            showSuccess(' Partage d\'écran arrêté');
+            updateStatus('Partage arrêté', true);
+        }
+
+        function toggleChat() {
+            const container = document.getElementById('chatContainer');
+            container.classList.toggle('hidden');
+            if (container.classList.contains('hidden')) {
+                // Chat caché
+            } else {
+                // Chat visible - réinitialiser le compteur de non-lus
+                unreadCount = 0;
+                unreadBadge.style.display = 'none';
+            }
+        }
+
+        function leaveRoom() {
+            if (confirm('Voulez-vous vraiment quitter la réunion ?')) {
+                if (isScreenSharing) {
+                    stopScreenShare();
+                }
+                socket.emit('leave-room', { roomId, userId: user.id });
+                if (localStream) localStream.getTracks().forEach(track => track.stop());
+                Object.values(peerConnections).forEach(pc => pc.close());
+                isInRoom = false;
+                window.location.href = '/pages/dashboard.html';
+            }
+        }
+
+        // === Initialisation ===
+        console.log(' Démarrage de la salle de réunion');
+        console.log(' Utilisateur:', user);
+        console.log(' Protocole:', window.location.protocol);
+
+        // Démarrer la caméra
+        initCamera();
+
+        // Si l'utilisateur clique sur le placeholder, lancer la caméra
+        document.getElementById('localVideoWrapper').addEventListener('click', () => {
+            if (!cameraInitialized) {
+                initCamera();
+            }
+        });
+
+        // Raccourci clavier : Ctrl+E pour ouvrir les emojis
+        document.addEventListener('keydown', function(e) {
+            if ((e.ctrlKey || e.metaKey) && e.key === 'e') {
+                e.preventDefault();
+                toggleEmojiPicker();
+            }
+        });
+    </script>
+</body>
+</html>
